@@ -5,11 +5,11 @@
 //! JSON schema (llguidance), so even small models produce parseable output.
 //! Nothing executes without passing the approval gate (ui::confirm_run).
 
-mod context;
-mod exec;
-mod risk;
-mod suggest;
-mod ui;
+use acmdthat::context;
+use acmdthat::exec;
+use acmdthat::risk;
+use acmdthat::suggest::{self, PromptVersion, Suggestion};
+use acmdthat::ui;
 
 use std::io::IsTerminal;
 use std::sync::Arc;
@@ -18,13 +18,13 @@ use clap::Parser;
 use nobodywho::chat::ChatBuilder;
 use nobodywho::{llm, miette};
 
-use crate::suggest::Suggestion;
-
-/// Default model: the smallest-fastest model that reliably solves the task.
-/// Qwen3.5-9B (Q4_K_M, 5.7 GB) fits an 8 GB GPU with KV headroom and handles
-/// one-line command generation well. `--model auto` switches back to
-/// NobodyWho's memory-based pick, `--model <path/hf-ref>` overrides freely.
-const DEFAULT_MODEL: &str = "hf://unsloth/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf";
+/// Default model: the eval-sweep winner on this hardware (notes session 6,
+/// `evals/RESULTS.md`): Gemma4-E4B Q4_K_M — best exact score of the sweep,
+/// tied-best program score, zero rambling, 1.4 s median generation on the
+/// RX 7700S. 4.98 GB fits an 8 GB GPU with KV headroom. `--model` overrides:
+/// any local .gguf path or hf:// reference, or `auto` (NobodyWho's pick by
+/// free RAM).
+const DEFAULT_MODEL: &str = "hf://NobodyWho/Google_Gemma4-E4B-GGUF/gemma-4-E4B-it-Q4_K_M.gguf";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -38,7 +38,7 @@ struct Cli {
     what: Vec<String>,
 
     /// Model: a local .gguf path, an hf:// reference, or "auto" (pick by RAM).
-    /// Default: Qwen3.5-9B Q4_K_M (small, fast, fits 8 GB GPUs).
+    /// Default: Gemma4-E4B Q4_K_M (eval-sweep winner; see evals/RESULTS.md).
     #[arg(short, long, default_value = DEFAULT_MODEL)]
     model: String,
 
@@ -95,23 +95,26 @@ fn main() -> miette::Result<()> {
         None
     };
     let model = llm::get_model(&cli.model, use_gpu, None, None, None)?;
-    let model_name = model
-        .source()
+    let model_source = model.source().to_string();
+    let model_name = model_source
         .rsplit('/')
         .next()
-        .unwrap_or_else(|| model.source())
+        .unwrap_or(model_source.as_str())
         .trim_end_matches(".gguf")
         .to_string();
     if let Some(s) = spinner.take() {
         s.stop(format!("model ready: {model_name}"));
     }
 
-    let chat = ChatBuilder::new(Arc::new(model))
+    let mut chat_builder = ChatBuilder::new(Arc::new(model))
         .with_context_size(4096)
-        .with_system_prompt(Some(suggest::system_prompt(&ctx)))
-        .with_template_variable("enable_thinking".to_string(), false)
-        .with_sampler(suggest::sampler())
-        .build()?;
+        .with_system_prompt(Some(suggest::system_prompt(&ctx, PromptVersion::V2)))
+        .with_sampler(suggest::sampler());
+    // Qwen ships with thinking mode on by default; disable for speed.
+    if suggest::is_qwen(&model_source) {
+        chat_builder = chat_builder.with_template_variable("enable_thinking".to_string(), false);
+    }
+    let chat = chat_builder.build()?;
 
     // Generate, streaming tokens.
     let started = std::time::Instant::now();

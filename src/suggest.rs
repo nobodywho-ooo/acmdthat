@@ -6,6 +6,41 @@ use nobodywho::miette;
 use nobodywho::sampler::{GrammarStep, SampleStep, SamplerBuilder, SamplerConfig, ShiftStep};
 use serde::{Deserialize, Serialize};
 
+/// Which system prompt to render. V1 is the initial rule-list prompt; V2 adds
+/// few-shot examples, an ambiguity policy and quoting discipline. The eval
+/// harness A/Bs these; the CLI defaults to the latest.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PromptVersion {
+    V1,
+    V2,
+}
+
+impl PromptVersion {
+    pub fn parse(s: &str) -> miette::Result<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "v1" => Ok(Self::V1),
+            "v2" => Ok(Self::V2),
+            other => Err(miette::miette!(
+                "unknown prompt version {other:?} (expected v1 or v2)"
+            )),
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::V1 => "v1",
+            Self::V2 => "v2",
+        }
+    }
+}
+
+pub fn system_prompt(ctx: &EnvContext, version: PromptVersion) -> String {
+    match version {
+        PromptVersion::V1 => system_prompt_v1(ctx),
+        PromptVersion::V2 => system_prompt_v2(ctx),
+    }
+}
+
 /// JSON schema the model's output is grammar-constrained to (llguidance).
 ///
 /// `maxItems: 1` for M1: exactly one command, no picker yet. M2 widens this to
@@ -58,7 +93,7 @@ pub fn sampler() -> SamplerConfig {
         .sample(SampleStep::Dist)
 }
 
-pub fn system_prompt(ctx: &EnvContext) -> String {
+pub fn system_prompt_v1(ctx: &EnvContext) -> String {
     let entries = if ctx.entries.is_empty() {
         "(empty or unreadable)".to_string()
     } else {
@@ -88,6 +123,59 @@ Working directory contains:\n{entries}",
         os = ctx.os,
         cwd = ctx.cwd_display(),
     )
+}
+
+/// V2: adds few-shot examples, an ambiguity policy, and quoting discipline —
+/// the weaknesses observed in V1 while testing small models (0.6B/0.8B).
+pub fn system_prompt_v2(ctx: &EnvContext) -> String {
+    let entries = if ctx.entries.is_empty() {
+        "(empty or unreadable)".to_string()
+    } else {
+        ctx.entries
+            .iter()
+            .map(|e| format!("  {e}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    format!(
+        "You are the command generator inside acmdthat, a terminal assistant. \
+Convert the user's request into exactly one {shell} command line to run on {os} \
+from the working directory {cwd}. Reply with JSON only.\n\
+Rules:\n\
+- One single line, valid {shell}, ready to run as-is: no markdown, no \
+backticks, no leading '$'.\n\
+- Prefer widely available modern tools (rg, fd, jq, awk) when they fit; \
+fall back to portable POSIX ones (grep, find) only when needed.\n\
+- Quote literal strings with single quotes, especially patterns or text \
+containing spaces or non-ASCII characters.\n\
+- Prefer paths relative to the working directory.\n\
+- Steps that depend on each other join with '&&'; independent steps with ';'. \
+One line total.\n\
+- If the request is ambiguous, pick the most common interpretation and \
+mention the alternative briefly in the explanation.\n\
+- explanation: one short sentence on what the command does and its key flags.\n\
+\n\
+Examples:\n\
+user: \"show the 10 biggest files under the current directory\"\n\
+assistant: {{\"commands\":[{{\"command\":\"du -ah . | sort -rh | head -n 10\",\"explanation\":\"Sizes of everything under ., human-readable, sorted descending, top 10.\"}}]}}\n\
+user: \"list which files in this repo contain TODO, ignoring case, unique filenames only\"\n\
+assistant: {{\"commands\":[{{\"command\":\"rg -i -l 'TODO' . | sort -u\",\"explanation\":\"ripgrep case-insensitively lists files (-l) matching TODO, deduplicated.\"}}]}}\n\
+user: \"extract archive.zip into a directory named out\"\n\
+assistant: {{\"commands\":[{{\"command\":\"mkdir -p out && unzip archive.zip -d out\",\"explanation\":\"Creates out if missing, then extracts the archive into it.\"}}]}}\n\
+\n\
+Working directory contains:\n{entries}",
+        shell = ctx.shell,
+        os = ctx.os,
+        cwd = ctx.cwd_display(),
+    )
+}
+
+/// Qwen family models ship with thinking mode on by default (slow for this
+/// task); other families (Gemma) don't have the template variable. Only set
+/// `enable_thinking=false` when the model source looks like a Qwen.
+pub fn is_qwen(source: &str) -> bool {
+    source.to_ascii_lowercase().contains("qwen")
 }
 
 /// Stream a suggestion for `query`, reporting each token piece to `on_token`

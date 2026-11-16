@@ -58,11 +58,12 @@ nix run . -- search for the string 'Asbjørn' in this directory
 nix develop -c cargo build --release
 ```
 
-Models: the default is Qwen3.5-9B Q4_K_M (~5.7 GB — small enough to stay fast
-on an 8 GB GPU, big enough to solve command generation well). Override with
-`--model`: `auto` (NobodyWho's memory-based pick), a local `.gguf` path, or any
-`hf://user/repo/file.gguf` reference. First use downloads from Hugging Face
-into the NobodyWho cache.
+Models: the default is **Gemma4-E4B Q4_K_M** (~5.0 GB — the eval-sweep winner on
+an 8 GB GPU; see [`evals/RESULTS.md`](evals/RESULTS.md): best exact score,
+tied-best program score, zero rambling, 1.4 s median generation on the RX 7700S).
+Override with `--model`: `auto` (NobodyWho's memory-based pick), a local `.gguf`
+path, or any `hf://user/repo/file.gguf` reference. First use downloads from
+Hugging Face into the NobodyWho cache.
 
 ## License
 

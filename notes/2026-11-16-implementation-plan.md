@@ -181,7 +181,7 @@ fastest; M2 rebuilds the gate on (1). If we're confident, jump straight to (1)
 ## Open decisions → design review
 
 1. M1 UI: simple prompt first (M1 simple → M2 ratatui), or ratatui from day one? **→ A: M1 simple → M2 ratatui (approved 2026-11-16)**
-2. Default model policy: `auto` memory-based vs fixed default GGUF? **→ was auto; changed to fixed Qwen3.5-9B Q4_K_M after 27B/auto proved too big for an 8 GB GPU (2026-11-16, session 5); `--model auto` still available**
+2. Default model policy: `auto` memory-based vs fixed default GGUF? **→ was auto; then Qwen3.5-9B (session 5) after 27B/auto proved too big for an 8 GB GPU; now **Gemma4-E4B Q4_K_M** (session 6→7 decision) — eval-sweep winner: strictly-superset exact score vs the 9B, tied-best program, zero rambling, 2.4× faster; `--model auto` still available**
 3. License: EUPL-1.2 vs private vs dual? **→ EUPL-1.2 (approved 2026-11-16)**
 4. Approval actions set for v1: run/edit/copy/regenerate/explain — which subset is must-have day one? **→ M1 ships run/quit only (approved 2026-11-16)**
 5. Any objection to `~/.config/acmdthat/config.toml` for defaults? **→ none raised; still TODO (M2)**

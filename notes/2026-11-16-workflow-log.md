@@ -217,3 +217,80 @@ the 9B is the right size class for the task.)
 
 **M1 status: complete + validated, default model settled.** Pending: host GPU
 run of the same flows, then M2 (ratatui inline card, picker, edit/regenerate).
+
+## 2026-11-16 — Session 6 (eval suite + model sweep)
+
+Scope (Asbjørn): prompt-quality iteration + a Qwen↔Gemma model comparison in
+the 2–8B class, via a repeatable eval suite.
+
+Built:
+- `src/lib.rs` refactor (bins share the pipeline), `src/bin/eval.rs` harness:
+  `--model NAME=REF` (repeatable), `--prompt v1|v2`, `--case ID`, `--jsonl`, 
+  per-case reset_history isolation, scores (exact / program / flags P&R),
+  cross-model table. `evals/cases.toml`: 15 cases with references.
+  `justfile`: `eval` (full sweep), `eval-one`, `eval-ab`.
+- Prompt **v2** (few-shot ×3, ambiguity policy, quoting discipline); v1 kept
+  for A/B via `PromptVersion`. Qwen-only `enable_thinking=false` gate
+  (`suggest::is_qwen`) so Gemma runs aren't touched.
+- `--jsonl evals/results.jsonl` append-only raw log (gitignored).
+
+Operational: laptop died twice mid-sweep (power + sandbox reset ate a CDN
+allowlist → re-allowed). Lesson applied: run each model in halves (8+7) so a
+kill loses one half-run; jsonl is append-only so nothing is ever lost.
+Sandbox CDN re-allow → GPU exposed to the harness → all rows re-run uniformly
+on the host GPU (RX 7700S; earlier 2B/9B rows were CPU: 30s/150s per case vs
+0.5–3.5s now).
+
+Results (all GPU, v2 unless noted; full tables in `evals/RESULTS.md`):
+
+| model | exact | program | errors | median |
+|---|---|---|---|---|
+| gemma4-e4b | **8/15** | 12/15 | 0 | 1.4s |
+| qwen3.5-9b | 5/15 | **13/15** | 0 | 3.3s |
+| qwen3.5-4b | 5/15 | 12/15 | 0 | 2.1s |
+| gemma4-e2b | 5/15 | 10/15 | 1 | 0.8s |
+| qwen3.5-2b | 4/15 | 9/15 | 0 | 1.0s |
+| qwen3.5-0.8b | 2/15 | 9/15 | 2 | 0.5s |
+| qwen3.5-2b, prompt v1 | 2/15 | 6/15 | 1 | 1.3s |
+
+Prompt A/B (2B): v2 beats v1 on every metric (exact 2→4, program 6→9, flags
+P .38→.64 / R .57→.77, errors 1→0) at equal latency → v2 confirmed default.
+
+Findings: E4B quality/speed winner (only model exact on `tail-follow`;
+unnecessary `sudo` wart on ss-ports). 4B = size-conscious pick (12/15 program
+at 55% of E4B download). 9B: best program but 2.4× E4B latency. Gemmas chose
+ImageMagick `convert` over ffmpeg (v2's tool examples dropped ffmpeg —
+sensitivity worth fixing in v3). Rambling (ctx-shift error) = small-model
+failure mode on JSON-heavy cases.
+
+Caveats: single sample/case at T=0.2 (±1–2 cases is noise — needs 3× repeats);
+exact-match undercounts functional equivalence (JOBS=4 prefix form, notes/ vs
+notes); suite is 15 cases, mine.
+
+Next: harness `--repeat`; 3× confirm runs of E4B/4B/9B; then decide DEFAULT_MODEL
+switch (E4B vs 4B), prompt v3 (ffmpeg tool example, anti-sudo, anti-decoration),
+suite growth incl. fish-specific cases. **M2 (ratatui card) still queued.**
+
+## 2026-11-16 — Session 7 (default model → Gemma4-E4B)
+
+Asbjørn challenged the 9B-vs-E4B comparison; raw-data recheck prompted two
+corrections to my earlier claims (jq-field: exact for 5/6 models, not 9B-only;
+ffmpeg: ALL models chose `convert` on v2 — the v2 tool list dropped ffmpeg —
+fixed in `evals/RESULTS.md`). Verified side-by-side: E4B's exact score is a
+**strict superset** of 9B's (8 vs 5, zero 9B-only wins), 2.4× faster median,
+and its worst failure (unneeded `sudo`) trips our risk gate loudly vs the 9B's
+worst (`tail -f | tail -n`) failing silently — loud errors beat quiet ones
+for an approval-gated tool. 9B keeps: program score 13 vs 12 (one case:
+ss-ports, where E4B's answer was wrong anyway), flag P/R edge, and the one
+genuinely context-aware answer of the sweep (mv targeting real `target/*/*.o`
+paths from the cwd listing). Decision (Asbjørn): **switch default to E4B**.
+
+Changed: `DEFAULT_MODEL` →
+`hf://NobodyWho/Google_Gemma4-E4B-GGUF/gemma-4-E4B-it-Q4_K_M.gguf` (Q4_K_M,
+4.98 GB), `--help` text + README (eval-sweep citation), plan decision log.
+Validated live: new default resolves, streams, and suggested the correct
+`du -ah . | sort -rh | head -n 10` on first run from cache.
+
+Caveat kept in the decision log: n=1 per case, T=0.2, 15 self-written cases —
+the 8-vs-5 is suggestive, not conclusive; the 3× repeat protocol is still the
+right confirmation step before treating E4B as settled in RESULTS.md terms.

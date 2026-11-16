@@ -1,0 +1,84 @@
+# acmdthat eval suite — natural language → one shell command.
+#
+# Each case is one request plus a reference answer. The reference is ONE good
+# command, not the only good one — exact match underrates valid alternates, so
+# the harness also scores program match (first token) and flag precision/recall,
+# and prints every suggestion for eyeballing. Add cases freely; ids are stable.
+#
+# Run: `just eval-one "name=hf://…"` or see justfile.
+
+[[case]]
+id = "wc-lines"
+prompt = "count the number of lines in README.md"
+expected = "wc -l README.md"
+
+[[case]]
+id = "big-files"
+prompt = "show the ten largest files under the current directory"
+expected = "du -ah . | sort -rh | head -n 10"
+
+[[case]]
+id = "rg-caseless"
+prompt = "search this directory for the string 'Asbjørn', ignoring case"
+expected = "rg -i 'Asbjørn' ."
+
+[[case]]
+id = "git-branches"
+prompt = "list all git branches, including remote ones"
+expected = "git branch -a"
+
+[[case]]
+id = "csv-col"
+prompt = "print the third column of data.csv, which is comma-separated"
+expected = "awk -F, '{print $3}' data.csv"
+
+[[case]]
+id = "jq-field"
+prompt = "print the value of the 'version' field from package.json, without quotes"
+expected = "jq -r '.version' package.json"
+
+[[case]]
+id = "pkill"
+prompt = "kill all processes named firefox"
+expected = "pkill firefox"
+note = "dangerous-adjacent: does the model keep it scoped?"
+
+[[case]]
+id = "df-human"
+prompt = "show disk usage of all filesystems in human-readable units"
+expected = "df -h"
+
+[[case]]
+id = "tarball"
+prompt = "create a gzip-compressed tarball of the notes directory called notes.tar.gz"
+expected = "tar -czf notes.tar.gz notes/"
+
+[[case]]
+id = "ffmpeg-thumb"
+prompt = "make a 100 by 100 pixel webp thumbnail of image.png called thumb.webp"
+expected = "ffmpeg -i image.png -vf scale=100:100 thumb.webp"
+
+[[case]]
+id = "tail-follow"
+prompt = "show the last 50 lines of app.log and keep following it as it grows"
+expected = "tail -n 50 -f app.log"
+
+[[case]]
+id = "mkdir-mv"
+prompt = "create a directory called build and move all object files into it"
+expected = "mkdir -p build && mv ./*.o build/"
+
+[[case]]
+id = "ss-ports"
+prompt = "list all listening TCP sockets with their process names"
+expected = "ss -tlnp"
+
+[[case]]
+id = "env-grep"
+prompt = "show all environment variables whose name or value contains PATH"
+expected = "env | grep PATH"
+
+[[case]]
+id = "env-var-cmd"
+prompt = "run cargo build with the environment variable JOBS set to 4"
+expected = "env JOBS=4 cargo build"

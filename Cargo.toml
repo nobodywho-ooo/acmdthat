@@ -16,6 +16,7 @@ console = "0.15"
 regex = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+toml = "0.9"
 
 # For hacking against a local NobodyWho checkout, uncomment:
 # [patch."https://github.com/nobodywho-ooo/nobodywho"]

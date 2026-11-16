@@ -5,4 +5,5 @@
 .envrc
 .env
 .pi/
+evals/results.jsonl
 notes/.DS_Store
