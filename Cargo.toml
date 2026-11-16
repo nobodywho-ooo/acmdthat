@@ -1,0 +1,29 @@
+[package]
+name = "acmdthat"
+version = "0.1.0"
+edition = "2021"
+description = "acmdthat <what you want> — a local LLM (NobodyWho) generates the shell command; you approve; it runs."
+license = "EUPL-1.2"
+repository = "https://github.com/asbjorn/acmdthat" # TODO: set real repo URL before publishing
+
+[dependencies]
+nobodywho = { git = "https://github.com/nobodywho-ooo/nobodywho", rev = "2aed9468", default-features = false }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cliclack = "0.3"
+console = "0.15"
+regex = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# For hacking against a local NobodyWho checkout, uncomment:
+# [patch."https://github.com/nobodywho-ooo/nobodywho"]
+# nobodywho = { path = "../nw/nobodywho/nobodywho/core" }
+
+[profile.dev.build-override]
+debug = false
+
+[profile.dev]
+# llama.cpp debug builds are huge; keep ours lean where it counts
+opt-level = 1
