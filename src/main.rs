@@ -18,12 +18,10 @@ use clap::Parser;
 use nobodywho::chat::ChatBuilder;
 use nobodywho::{llm, miette};
 
-/// Default model: the eval-sweep winner on this hardware (notes session 6,
-/// `evals/RESULTS.md`): Gemma4-E4B Q4_K_M — best exact score of the sweep,
-/// tied-best program score, zero rambling, 1.4 s median generation on the
-/// RX 7700S. 4.98 GB fits an 8 GB GPU with KV headroom. `--model` overrides:
-/// any local .gguf path or hf:// reference, or `auto` (NobodyWho's pick by
-/// free RAM).
+/// Default model: Gemma4-E4B Q4_K_M (`evals/RESULTS.md`): eval-sweep winner —
+/// best exact score (8/15), 0 errors, 1.4 s median generation on the RX 7700S.
+/// 4.98 GB fits the 8 GB GPU with KV headroom. `--model` overrides: any local
+/// .gguf path or hf:// reference, or `auto` (NobodyWho's pick by free RAM).
 const DEFAULT_MODEL: &str = "hf://NobodyWho/Google_Gemma4-E4B-GGUF/gemma-4-E4B-it-Q4_K_M.gguf";
 
 #[derive(Parser, Debug)]
