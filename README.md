@@ -33,6 +33,19 @@ $ acmdthat show the ten largest files under the current directory
 <sub>Illustrative transcript: the command and explanation are a recorded answer
 from the default model; the prompt chrome is approximated.</sub>
 
+## 🎬 Demo
+
+<p>
+  <img src="assets/demo.svg" alt="Terminal recording: acmdthat turns natural-language requests into shell commands, shows a risk assessment, and waits for approval before running anything">
+</p>
+
+<sub>A real one-minute session against the [NobodyWho](https://github.com/nobodywho-ooo/nobodywho)
+repo: branches sorted by recency and the latest Rust files — each approved at
+the gate and run — and finally an `rm -rf` request that trips the high-risk
+check and gets interrupted at the prompt, so nothing runs. Everything is
+generated and risk-checked on-device by the local default model
+(Gemma4-E4B).</sub>
+
 ---
 
 ## 💡 Why you'll like it
