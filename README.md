@@ -1,6 +1,6 @@
 <div align="center">
 
-# ✨ acmdthat
+# acmdthat
 
 ### *"a cmd that…"* — say what you want, get the shell command.
 
@@ -15,7 +15,7 @@ No API keys. No server. No telemetry. Nothing leaves your machine.
 </div>
 
 ```text
-$ acmdthat show the ten largest files under the current directory
+$ acmdthat shows the ten largest files under the current directory
 
 ◇  model ready: gemma-4-E4B-it-Q4_K_M
 ◇  thinking done
@@ -29,9 +29,6 @@ $ acmdthat show the ten largest files under the current directory
 ◆  Run this command?
 │  ○ Yes / ● No
 ```
-
-<sub>Illustrative transcript: the command and explanation are a recorded answer
-from the default model; the prompt chrome is approximated.</sub>
 
 ## 🎬 Demo
 
@@ -63,16 +60,11 @@ generated and risk-checked on-device by the local default model
 
 ## 🚀 Quick start
 
-You need [Nix](https://nixos.org/download) with flakes enabled. Clone this
-repo, then:
+If you have nix with flakes enabled, you can just do this:
 
 ```sh
 # try it without installing
-nix run . -- count the lines in README.md
-
-# or install it into your profile
-nix profile install .
-acmdthat count the lines in README.md
+nix run github:nobodywho-ooo/acmdthat -- count the lines in README.md
 ```
 
 > [!NOTE]
