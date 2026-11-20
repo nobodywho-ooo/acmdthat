@@ -105,7 +105,7 @@ fn main() -> miette::Result<()> {
     }
 
     let mut chat_builder = ChatBuilder::new(Arc::new(model))
-        .with_context_size(4096)
+        .with_context_size(8192)
         .with_system_prompt(Some(suggest::system_prompt(&ctx, PromptVersion::V2)))
         .with_sampler(suggest::sampler());
     // Qwen ships with thinking mode on by default; disable for speed.

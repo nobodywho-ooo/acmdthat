@@ -1,10 +1,16 @@
 //! Suggestion generation: schema-grammar-constrained output from NobodyWho.
 
 use crate::context::EnvContext;
-use nobodywho::chat::ChatHandle;
+use nobodywho::chat::{ChatHandle, CompletionChunk, FinishReason, Message, Options};
 use nobodywho::miette;
 use nobodywho::sampler::{GrammarStep, SampleStep, SamplerBuilder, SamplerConfig, ShiftStep};
 use serde::{Deserialize, Serialize};
+
+/// Hard cap on generated tokens. A small model stuck in a repetition loop
+/// inside the grammar-constrained JSON string would otherwise ramble until
+/// the context is full — a multi-minute hang ending in a cryptic context-shift
+/// error. Legit one-command answers are far below this.
+const MAX_TOKENS: usize = 768;
 
 /// Which system prompt to render. V1 is the initial rule-list prompt; V2 adds
 /// few-shot examples, an ambiguity policy and quoting discipline. The eval
@@ -152,12 +158,15 @@ containing spaces or non-ASCII characters.\n\
 - Prefer paths relative to the working directory.\n\
 - Steps that depend on each other join with '&&'; independent steps with ';'. \
 One line total.\n\
+- The request may be imperative ('show the biggest files') or descriptive \
+('a command that shows the biggest files'); treat both phrasings the same \
+and answer with the command itself.\n\
 - If the request is ambiguous, pick the most common interpretation and \
 mention the alternative briefly in the explanation.\n\
 - explanation: one short sentence on what the command does and its key flags.\n\
 \n\
 Examples:\n\
-user: \"show the 10 biggest files under the current directory\"\n\
+user: \"a command that shows the 10 biggest files under the current directory\"\n\
 assistant: {{\"commands\":[{{\"command\":\"du -ah . | sort -rh | head -n 10\",\"explanation\":\"Sizes of everything under ., human-readable, sorted descending, top 10.\"}}]}}\n\
 user: \"list which files in this repo contain TODO, ignoring case, unique filenames only\"\n\
 assistant: {{\"commands\":[{{\"command\":\"rg -i -l 'TODO' . | sort -u\",\"explanation\":\"ripgrep case-insensitively lists files (-l) matching TODO, deduplicated.\"}}]}}\n\
@@ -181,18 +190,42 @@ pub fn is_qwen(source: &str) -> bool {
 /// Stream a suggestion for `query`, reporting each token piece to `on_token`
 /// with the running token count. Returns the raw model output (a JSON object,
 /// by construction of the grammar).
+///
+/// `completion_stream` (rather than `ask`) is used to enforce the
+/// [`MAX_TOKENS`] cap; `Options::new()` keeps the builder's sampler, so the
+/// JSON grammar stays active.
 pub fn generate(
     chat: &ChatHandle,
     query: &str,
     mut on_token: impl FnMut(&str, usize),
 ) -> miette::Result<String> {
-    let mut stream = chat.ask(query)?;
+    let mut stream = chat.completion_stream(
+        vec![Message::new_user(query)],
+        Options::new(),
+        Some(MAX_TOKENS),
+        false,
+    )?;
     let mut count = 0usize;
-    while let Some(token) = stream.next_token()? {
-        count += 1;
-        on_token(&token, count);
+    let mut content = String::new();
+    loop {
+        match stream.next()? {
+            Some(CompletionChunk::Token(token)) => {
+                count += 1;
+                content.push_str(&token);
+                on_token(&token, count);
+            }
+            Some(CompletionChunk::Done(response)) => {
+                if response.finish_reason == FinishReason::Length {
+                    return Err(miette::miette!(
+                        "model hit the {MAX_TOKENS}-token cap without finishing \
+                         (stuck in a repetition loop?) — try rephrasing the request"
+                    ));
+                }
+                return Ok(response.content);
+            }
+            None => return Ok(content),
+        }
     }
-    Ok(stream.completed()?)
 }
 
 impl Suggestion {
