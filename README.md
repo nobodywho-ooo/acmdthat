@@ -36,7 +36,7 @@ from the default model; the prompt chrome is approximated.</sub>
 ## 🎬 Demo
 
 <p>
-  <img src="assets/demo.svg" alt="Terminal recording: acmdthat turns natural-language requests into shell commands, shows a risk assessment, and waits for approval before running anything">
+  <img src="assets/demo.gif" alt="Terminal recording: acmdthat turns natural-language requests into shell commands, shows a risk assessment, and waits for approval before running anything">
 </p>
 
 <sub>A real one-minute session against the [NobodyWho](https://github.com/nobodywho-ooo/nobodywho)
